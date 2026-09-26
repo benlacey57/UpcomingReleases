@@ -87,6 +87,24 @@ class ReleaseStorage:
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"items": items}, f, indent=4)
 
+        @log_execution
+    def load_media_registry(self) -> Dict[str, list]:
+        """Loads master canonical media objects (studios, tv, movies) from registry file."""
+        path = "data/media_registry.json"
+        if not os.path.exists(path):
+            return {"studios": [], "tv_series": [], "movies": []}
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    @log_execution
+    def save_media_registry(self, registry: Dict[str, list]) -> None:
+        """Saves master canonical media objects to registry file."""
+        path = "data/media_registry.json"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(registry, f, indent=4)
+            
+
     @log_execution
     def add_tracked_media(self, item: dict) -> None:
         """Adds a new movie or TV series item to track."""
