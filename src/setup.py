@@ -3,6 +3,7 @@ import glob
 import json
 import subprocess
 import sys
+import shutil
 import logging
 from src.storage import ReleaseStorage
 from src.security import SecurityService
@@ -10,12 +11,12 @@ from src.security import SecurityService
 logger = logging.getLogger(__name__)
 
 class SetupAssistant:
-    """Guides users through secure credential detection, encryption, and GitHub Secrets configuration."""
+    """Guides users through environment provisioning, service account detection, and .env creation."""
 
     @staticmethod
     def run_setup() -> None:
         print("\n=== Release Calendar Sync: Secure Setup Assistant ===")
-        print("This wizard will provision your environment, check for local service account files, and configure security.\n")
+        print("This wizard will provision your environment, check for local service account files, and configure your .env file.\n")
 
         # 1. Virtual Environment & Dependencies
         print("[1/4] Setting up Python virtual environment and dependencies...")
@@ -49,7 +50,7 @@ class SetupAssistant:
 
         if detected_file:
             print(f" -> Found Google Service Account file: '{detected_file}'")
-            password = input("Enter a master password to encrypt your credentials: ").strip()
+            password = input("Enter a master password to encrypt your credentials (or press Enter to store unencrypted): ").strip()
             if password:
                 security = SecurityService.from_password(password)
                 encrypted_creds = security.encrypt_data(service_account_json)
@@ -67,8 +68,12 @@ class SetupAssistant:
         calendar_id = input("Enter Google Calendar ID [Default: primary]: ").strip() or "primary"
         timezone = input("Enter Timezone [Default: UTC]: ").strip() or "UTC"
 
-        # 3. Save Configuration to .env
-        print("\n[3/4] Saving environment configuration to .env...")
+        # 3. Create or Update .env from .env.example
+        print("\n[3/4] Generating .env configuration file...")
+        if not os.path.exists(".env") and os.path.exists(".env.example"):
+            shutil.copy(".env.example", ".env")
+            print(" -> Created .env from .env.example template.")
+
         env_content = f"""ENCRYPTION_KEY={encryption_key}
 CALENDAR_ID={calendar_id}
 TIMEZONE={timezone}
@@ -80,23 +85,22 @@ ENABLE_API_FETCH=true
 """
         with open(".env", "w", encoding="utf-8") as f:
             f.write(env_content)
-        print(" -> Configuration saved successfully.")
+        print(" -> .env file updated successfully.")
 
-        # Securely delete raw local json file if detected
         if detected_file:
             confirm_delete = input(f"\nWould you like to securely delete the raw local file '{detected_file}'? (y/N): ").strip().lower()
             if confirm_delete == 'y':
                 os.remove(detected_file)
                 print(f" -> Successfully deleted raw file '{detected_file}'.")
             else:
-                print(f" -> WARNING: Raw file '{detected_file}' was retained. Ensure it is added to .gitignore!")
+                print(f" -> WARNING: Raw file '{detected_file}' retained. Ensure it is added to .gitignore!")
 
         # 4. GitHub Secrets Integration
         print("\n[4/4] GitHub Secrets Integration Check...")
         has_gh_cli = subprocess.run(["gh", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
         
         if has_gh_cli:
-            push_secrets = input("GitHub CLI ('gh') detected. Would you like to push ENCRYPTION_KEY and GOOGLE_CREDENTIALS_JSON to GitHub Secrets? (y/N): ").strip().lower()
+            push_secrets = input("GitHub CLI ('gh') detected. Push ENCRYPTION_KEY and GOOGLE_CREDENTIALS_JSON to GitHub Secrets? (y/N): ").strip().lower()
             if push_secrets == 'y':
                 try:
                     subprocess.run(["gh", "secret", "set", "ENCRYPTION_KEY", "--body", encryption_key], check=True)
@@ -106,14 +110,12 @@ ENABLE_API_FETCH=true
                 except Exception as e:
                     print(f" -> Failed to push secrets via GitHub CLI: {e}")
         else:
-            print(" -> GitHub CLI not detected. To manually add secrets to GitHub:")
-            print("    1. Go to your GitHub repository -> Settings -> Secrets and variables -> Actions")
-            print("    2. Add secrets: ENCRYPTION_KEY, GOOGLE_CREDENTIALS_JSON, CALENDAR_ID")
+            print(" -> GitHub CLI not detected. You can manually add secrets to your repository settings.")
 
         # Initialize Storage
         storage = ReleaseStorage()
         storage.save_state({"releases": {}})
         storage.save_cache({"last_updated": "", "cached_releases": {}})
-        storage.log_event("Setup assistant completed successfully with secure encryption.")
-        print("\nSetup complete! You can test your setup with: make debug")
-            
+        storage.log_event("Setup assistant completed successfully.")
+        print("\nSetup complete! You can verify your setup with: make debug")
+                
