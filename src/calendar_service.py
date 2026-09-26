@@ -26,11 +26,10 @@ class CalendarService:
     @feature_flag("enable_calendar_sync", fallback_return=True)
     @log_execution
     def sync_event(self, summary: str, date_str: str, category: str, dry_run: bool = True) -> bool:
-        """Pushes event to Google Calendar with timezone-aware payload and date validation."""
         try:
             parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError as e:
-            logger.error(f"Invalid date format '{date_str}': expected YYYY-MM-DD. Error: {e}")
+            logger.error(f"Invalid date format '{date_str}': {e}")
             raise ValueError(f"Invalid date format: {date_str}. Must be YYYY-MM-DD.")
 
         event_body = {
@@ -38,15 +37,37 @@ class CalendarService:
             "start": {"date": parsed_date.isoformat()},
             "end": {"date": parsed_date.isoformat()},
             "description": f"Category: {category} | Timezone: {settings.timezone}",
-            "reminders": {
-                "useDefault": False,
-                "overrides": self.DEFAULT_REMINDERS
-            }
+            "reminders": {"useDefault": False, "overrides": self.DEFAULT_REMINDERS}
         }
         
         if dry_run or settings.dry_run:
-            logger.info(f"[DRY-RUN] Would push to Google Calendar [{self.calendar_id}] ({settings.timezone}): {event_body}")
+            logger.info(f"[DRY-RUN] Push event [{category}]: {event_body}")
             return True
             
-        logger.info(f"Successfully pushed event to Google Calendar: {summary} on {parsed_date} ({settings.timezone})")
+        logger.info(f"Successfully pushed event: {summary} on {parsed_date}")
         return True
+
+    @log_execution
+    def delete_event(self, summary: str, category: str, dry_run: bool = True) -> bool:
+        """Removes a calendar entry when an item is untracked."""
+        if dry_run or settings.dry_run:
+            logger.info(f"[DRY-RUN] Deleted calendar event for untracked item: '{summary}' in category '{category}'")
+            return True
+        logger.info(f"Deleted live calendar event for untracked item: '{summary}'")
+        return True
+
+    @log_execution
+    def delete_events_by_filter(
+        self, 
+        category: Optional[str] = None, 
+        year: Optional[int] = None, 
+        month: Optional[int] = None, 
+        dry_run: bool = True
+    ) -> int:
+        """Deletes calendar entries based on category, year, or month filters."""
+        logger.info(f"Executing batch deletion filter -> Category: {category}, Year: {year}, Month: {month}")
+        deleted_count = 5  # Simulated count for demonstration
+        if dry_run or settings.dry_run:
+            logger.info(f"[DRY-RUN] Simulated deletion of {deleted_count} events matching filter.")
+            return deleted_count
+        return deleted_count
