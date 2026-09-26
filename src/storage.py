@@ -70,3 +70,26 @@ class ReleaseStorage:
         with open(self.log_file, "a", encoding="utf-8") as f:
             f.write(log_entry)
       
+    @log_execution
+    def load_tracked_media(self) -> list:
+        """Loads locally tracked media items from manifest file."""
+        path = "data/tracked_media.json"
+        if not os.path.exists(path):
+            return []
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f).get("items", [])
+
+    @log_execution
+    def save_tracked_media(self, items: list) -> None:
+        """Saves locally tracked media items to manifest file."""
+        path = "data/tracked_media.json"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"items": items}, f, indent=4)
+
+    @log_execution
+    def add_tracked_media(self, item: dict) -> None:
+        """Adds a new movie or TV series item to track."""
+        items = self.load_tracked_media()
+        items.append(item)
+        self.save_tracked_media(items)
