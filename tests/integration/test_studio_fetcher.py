@@ -58,3 +58,24 @@ def test_studio_fetcher_malformed_item():
     assert key in releases
     assert releases[key]["date"] == "2026-12-31"
   
+def test_studio_fetcher_logs_to_storage(tmp_path):
+    """Test that studio release checking writes an audit record to the version-controlled log."""
+    state_file = tmp_path / "state.json"
+    cache_file = tmp_path / "cache.json"
+    log_file = tmp_path / "history.log"
+    storage = ReleaseStorage(str(state_file), str(cache_file), str(log_file))
+
+    mock_data = [
+        {"media_type": "movie", "title": "Thunderbolts", "release_date": "2027-05-01"}
+    ]
+    
+    checker = StudioReleaseChecker(studio_name="Marvel", raw_mock_data=mock_data, storage=storage)
+    releases = checker.fetch_releases()
+
+    assert len(releases) == 1
+    assert log_file.exists()
+    
+    with open(log_file, "r", encoding="utf-8") as f:
+        log_content = f.read()
+        assert "STUDIO_FETCH" in log_content
+        assert "Marvel" in log_content
