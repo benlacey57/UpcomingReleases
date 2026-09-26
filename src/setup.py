@@ -15,24 +15,25 @@ class SetupAssistant:
         print("==============================================\n")
         
         # 1. TMDB API Key Prompt
-        print("The script uses the TMDB API to search for movies, TV series, and studios.")
         tmdb_key = input("Enter your TMDB API Key (or Bearer Token): ").strip()
         
         # 2. Google Calendar ID Prompt
         calendar_id = input("Enter your Google Calendar ID [default: primary]: ").strip() or "primary"
         
-        # 3. Google Credentials JSON Prompt
-        print("\nPaste your Google Service Account Credentials JSON content below (or press Enter to skip for dry-run):")
-        creds_json = input("Google Credentials JSON: ").strip()
-        if not creds_json:
-            creds_json = "{}"
-            print("No Google credentials provided. Running in dry-run/unauthenticated mode.")
+        # 3. Google Credentials JSON File Path Prompt
+        creds_json = "{}"
+        cred_path = input("Enter path to your Google Service Account JSON file (or press Enter to skip): ").strip()
+        if cred_path:
+            if os.path.exists(cred_path):
+                with open(cred_path, "r", encoding="utf-8") as f:
+                    creds_json = f.read().strip()
+                print(f"[SUCCESS] Loaded Google credentials from '{cred_path}'.")
+            else:
+                print(f"[WARNING] File '{cred_path}' not found. Skipping live calendar auth for now.")
 
         # 4. Generate/Secure Encryption Key
         fernet_key = SecurityService()._key
         security = SecurityService(fernet_key)
-        
-        # Encrypt sensitive tokens before storing in env/config
         encrypted_tmdb = security.encrypt_data(tmdb_key) if tmdb_key else ""
         
         # 5. Write configuration to .env
@@ -51,9 +52,8 @@ TIMEZONE=UTC
         with open(".env", "w", encoding="utf-8") as f:
             f.write(env_content)
             
-        print("\n[SUCCESS] Setup completed successfully!")
-        print("Configuration saved securely to '.env'. You can now run 'make sync-dry' or 'make add'.")
+        print("\n[SUCCESS] Setup completed successfully! Configuration saved to '.env'.")
 
 if __name__ == "__main__":
     SetupAssistant.run_setup()
-    
+        
