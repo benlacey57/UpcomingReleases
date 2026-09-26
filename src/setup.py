@@ -32,12 +32,14 @@ class SetupAssistant:
         existing_key = os.getenv("ENCRYPTION_KEY", "insecure-default-key-for-testing==")
         encryption_key = input(f"Enter Encryption Key [Default/Auto]: ").strip() or existing_key
         calendar_id = input(f"Enter Google Calendar ID [Default: primary]: ").strip() or "primary"
-        
+        timezone = input(f"Enter Timezone [Default: UTC]: ").strip() or "UTC"
+    
         print("\nGoogle Service Account JSON Credentials:")
         google_creds = input("Google Credentials JSON (single-line or press Enter to skip): ").strip() or "{}"
 
         env_content = f"""ENCRYPTION_KEY={encryption_key}
 CALENDAR_ID={calendar_id}
+TIMEZONE={timezone}
 GOOGLE_CREDENTIALS_JSON='{google_creds}'
 DRY_RUN=true
 ENABLE_CALENDAR_SYNC=true
