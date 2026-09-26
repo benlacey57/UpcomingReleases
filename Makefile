@@ -1,4 +1,4 @@
-.PHONY: install setup test test-unit test-integration test-e2e debug lint list-categories list-movies list-series show-logs sync-dry sync-live clean
+.PHONY: install setup test test-unit test-integration test-e2e debug lint list-categories list-movies list-series show-logs sync-dry sync-live add clean
 
 install:
 	python -m venv .venv
@@ -44,6 +44,9 @@ sync-dry:
 
 sync-live:
 	.venv/bin/python -m src.args --sync
+
+add:
+	.venv/bin/python -m src.args --add --type "$(TYPE)" --title "$(TITLE)" --date "$(DATE)" $(if $(SEASON),--season $(SEASON)) $(if $(EPISODE),--episode $(EPISODE)) $(if $(EP_NAME),--ep-name "$(EP_NAME)")
 
 clean:
 	rm -rf .venv .pytest_cache __pycache__ src/__pycache__ tests/__pycache__ .coverage data/state.json data/cache.json logs/release_history.log logs/debug_report.txt
