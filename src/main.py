@@ -1,5 +1,4 @@
 import logging
-import sys
 from typing import List, Dict, Any
 from src.config import settings
 from src.storage import ReleaseStorage
@@ -50,7 +49,7 @@ class ReleaseSyncOrchestrator:
                     summary = f"{data['title']} - {ep_key.upper()}: {ep_info['episode_name']}"
                     success = self.calendar_service.sync_event(
                         summary=summary,
-                        date=ep_info["date"],
+                        date_str=ep_info["date"],
                         category=data["category"],
                         dry_run=settings.dry_run
                     )
@@ -67,7 +66,7 @@ class ReleaseSyncOrchestrator:
                 summary = data["title"]
                 success = self.calendar_service.sync_event(
                     summary=summary,
-                    date=data["date"],
+                    date_str=data["date"],
                     category=data["category"],
                     dry_run=settings.dry_run
                 )
@@ -82,10 +81,11 @@ class ReleaseSyncOrchestrator:
         logger.info("Release synchronization pipeline completed successfully.")
 
 if __name__ == "__main__":
+    import sys
     orchestrator = ReleaseSyncOrchestrator()
     try:
         orchestrator.run()
     except Exception as e:
         logger.error(f"Pipeline failed with error: {e}")
         sys.exit(1)
-      
+                
