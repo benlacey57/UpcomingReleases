@@ -1,0 +1,23 @@
+{
+  "studios": [
+    {
+      "name": "Marvel Studios",
+      "studio_id": 420,
+      "category": "movie-releases"
+    }
+  ],
+  "tv_series": [
+    {
+      "title": "Peacemaker",
+      "media_id": 110328,
+      "category": "tv-releases"
+    }
+  ],
+  "movies": [
+    {
+      "title": "Avengers: Secret Wars",
+      "media_id": 526896,
+      "category": "movie-releases"
+    }
+  ]
+}
