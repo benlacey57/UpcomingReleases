@@ -1,4 +1,4 @@
-.PHONY: install setup test test-unit test-integration test-e2e debug lint list-categories list-movies list-series show-logs sync-dry sync-live add clean
+.PHONY: install setup test test-unit test-integration test-e2e debug lint list-categories list-movies list-series show-logs sync-dry sync-live add clean secrets-list secrets-add secrets-delete
 
 install:
 	python -m venv .venv
@@ -44,6 +44,15 @@ sync-dry:
 
 sync-live:
 	.venv/bin/python -m src.args --sync
+
+secrets-list:
+	.venv/bin/python -m src.secrets_manager --list
+
+secrets-add:
+	.venv/bin/python -m src.secrets_manager --add --name "$(name)" --value "$(value)"
+
+secrets-delete:
+	.venv/bin/python -m src.secrets_manager --delete --name "$(name)"
 
 add:
 	.venv/bin/python -m src.args --add --type "$(TYPE)" --title "$(TITLE)" --date "$(DATE)" $(if $(SEASON),--season $(SEASON)) $(if $(EPISODE),--episode $(EPISODE)) $(if $(EP_NAME),--ep-name "$(EP_NAME)")
