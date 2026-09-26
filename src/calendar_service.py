@@ -26,8 +26,7 @@ class CalendarService:
     @feature_flag("enable_calendar_sync", fallback_return=True)
     @log_execution
     def sync_event(self, summary: str, date_str: str, category: str, dry_run: bool = True) -> bool:
-        """Pushes event to Google Calendar with timezone-aware payload."""
-        # Validate date format (YYYY-MM-DD)
+        """Pushes event to Google Calendar with timezone-aware payload and date validation."""
         try:
             parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError as e:
@@ -51,4 +50,3 @@ class CalendarService:
             
         logger.info(f"Successfully pushed event to Google Calendar: {summary} on {parsed_date} ({settings.timezone})")
         return True
-          
