@@ -17,8 +17,9 @@ class BaseReleaseChecker(abc.ABC):
 class TMDBReleaseChecker(BaseReleaseChecker):
     """Concrete implementation for fetching specific watchlist release updates with nested episode mapping."""
 
-    def __init__(self, tracked_items: List[Dict[str, Any]]) -> None:
+    def __init__(self, tracked_items: List[Dict[str, Any]], storage: Optional[ReleaseStorage] = None) -> None:
         self.tracked_items = tracked_items
+        self.storage = storage or ReleaseStorage()
 
     @retry_on_failure(retries=3, delay=1.0)
     @log_execution
@@ -54,23 +55,24 @@ class TMDBReleaseChecker(BaseReleaseChecker):
                 grouped_releases[key]["date"] = item.get("release_date", "2026-12-31")
                 grouped_releases[key]["synced"] = False
                 
+        msg = f"Fetched {len(grouped_releases)} watchlist items."
+        logger.info(msg)
+        self.storage.log_event(f"WATCHLIST_FETCH: {msg}")
         return grouped_releases
 
 
 class StudioReleaseChecker(BaseReleaseChecker):
     """Dedicated studio/franchise catalog checker (e.g., Marvel, DC, Disney) handling mixed media types."""
 
-    def __init__(self, studio_name: str, raw_mock_data: Optional[List[Dict[str, Any]]] = None) -> None:
+    def __init__(self, studio_name: str, raw_mock_data: Optional[List[Dict[str, Any]]] = None, storage: Optional[ReleaseStorage] = None) -> None:
         self.studio_name = studio_name
         self._raw_mock_data = raw_mock_data
+        self.storage = storage or ReleaseStorage()
 
     @retry_on_failure(retries=3, delay=1.0)
     @log_execution
     def fetch_releases(self) -> Dict[str, Dict[str, Any]]:
         grouped_releases: Dict[str, Dict[str, Any]] = {}
-        
-        # If mock data is provided (e.g., for testing or local pinned manifests), use it;
-        # otherwise, prepare for live API catalog ingestion.
         items = self._raw_mock_data if self._raw_mock_data is not None else []
         
         for item in items:
@@ -102,6 +104,8 @@ class StudioReleaseChecker(BaseReleaseChecker):
                 grouped_releases[key]["date"] = item.get("release_date", "2026-12-31")
                 grouped_releases[key]["synced"] = False
                 
-        logger.info(f"Successfully fetched {len(grouped_releases)} release groups for studio: {self.studio_name}")
+        msg = f"Fetched {len(grouped_releases)} release groups for studio '{self.studio_name}'."
+        logger.info(msg)
+        self.storage.log_event(f"STUDIO_FETCH: {msg}")
         return grouped_releases
-            
+                      
