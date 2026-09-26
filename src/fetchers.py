@@ -163,4 +163,3 @@ class StudioReleaseChecker(BaseReleaseChecker):
                 grouped_releases[key]["synced"] = False
                 
         return grouped_releases
-                    
