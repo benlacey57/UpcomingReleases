@@ -1,1 +1,43 @@
-
+{
+  "items": [
+    {
+      "type": "movie",
+      "title": "Avengers: Secret Wars",
+      "release_date": "2027-05-07",
+      "category": "movie-releases"
+    },
+    {
+      "type": "movie",
+      "title": "Fantastic Four: First Steps",
+      "release_date": "2025-07-25",
+      "category": "movie-releases"
+    },
+    {
+      "type": "tv",
+      "title": "Peacemaker",
+      "season": 2,
+      "episode": 1,
+      "episode_name": "Season 2 Premiere",
+      "release_date": "2026-10-15",
+      "category": "tv-releases"
+    },
+    {
+      "type": "tv",
+      "title": "Peacemaker",
+      "season": 2,
+      "episode": 2,
+      "episode_name": "Episode 2",
+      "release_date": "2026-10-22",
+      "category": "tv-releases"
+    },
+    {
+      "type": "tv",
+      "title": "Lanterns",
+      "season": 1,
+      "episode": 1,
+      "episode_name": "Pilot",
+      "release_date": "2026-11-05",
+      "category": "tv-releases"
+    }
+  ]
+}
