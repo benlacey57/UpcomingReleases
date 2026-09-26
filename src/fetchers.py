@@ -11,11 +11,10 @@ class BaseReleaseChecker(abc.ABC):
 
     @abc.abstractmethod
     def fetch_releases(self) -> Dict[str, Dict[str, Any]]:
-        """Fetches upcoming releases grouped by parent media key."""
         pass
 
 class TMDBReleaseChecker(BaseReleaseChecker):
-    """Concrete implementation for fetching specific watchlist release updates with nested episode mapping."""
+    """Concrete implementation for specific watchlist release updates."""
 
     def __init__(self, tracked_items: List[Dict[str, Any]], storage: Optional[ReleaseStorage] = None) -> None:
         self.tracked_items = tracked_items
@@ -30,13 +29,15 @@ class TMDBReleaseChecker(BaseReleaseChecker):
             media_type = item.get("type", "movie")
             title = item.get("title", "Unknown")
             key = ReleaseStorage.normalize_key(media_type, title)
-            category = f"{media_type}-releases"
+            studio = item.get("studio")
+            category = f"{studio.lower()}-releases" if studio else f"{media_type}-releases"
             
             if key not in grouped_releases:
                 grouped_releases[key] = {
                     "title": title,
                     "category": category,
                     "type": media_type,
+                    "studio": studio,
                     "episodes": {} if media_type == "tv" else None
                 }
             
@@ -55,14 +56,11 @@ class TMDBReleaseChecker(BaseReleaseChecker):
                 grouped_releases[key]["date"] = item.get("release_date", "2026-12-31")
                 grouped_releases[key]["synced"] = False
                 
-        msg = f"Fetched {len(grouped_releases)} watchlist items."
-        logger.info(msg)
-        self.storage.log_event(f"WATCHLIST_FETCH: {msg}")
         return grouped_releases
 
 
 class StudioReleaseChecker(BaseReleaseChecker):
-    """Dedicated studio/franchise catalog checker (e.g., Marvel, DC, Disney) handling mixed media types."""
+    """Dedicated studio/franchise catalog checker with dedicated category mapping."""
 
     def __init__(self, studio_name: str, raw_mock_data: Optional[List[Dict[str, Any]]] = None, storage: Optional[ReleaseStorage] = None) -> None:
         self.studio_name = studio_name
@@ -74,18 +72,19 @@ class StudioReleaseChecker(BaseReleaseChecker):
     def fetch_releases(self) -> Dict[str, Dict[str, Any]]:
         grouped_releases: Dict[str, Dict[str, Any]] = {}
         items = self._raw_mock_data if self._raw_mock_data is not None else []
+        category = f"{self.studio_name.lower().strip()}-releases"
         
         for item in items:
             media_type = item.get("media_type", "movie").lower().strip()
             title = item.get("title", "Unknown Studio Release")
             key = ReleaseStorage.normalize_key(media_type, title)
-            category = f"{media_type}-releases"
             
             if key not in grouped_releases:
                 grouped_releases[key] = {
                     "title": title,
                     "category": category,
                     "type": media_type,
+                    "studio": self.studio_name,
                     "episodes": {} if media_type == "tv" else None
                 }
             
@@ -108,4 +107,3 @@ class StudioReleaseChecker(BaseReleaseChecker):
         logger.info(msg)
         self.storage.log_event(f"STUDIO_FETCH: {msg}")
         return grouped_releases
-                      
