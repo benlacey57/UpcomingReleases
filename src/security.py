@@ -1,49 +1,31 @@
-import base64
-import logging
 from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import os
+import logging
 from src.config import settings
 
 logger = logging.getLogger(__name__)
 
 class SecurityService:
-    """Handles AES-256 Fernet encryption with password-based key derivation (PBKDF2)."""
-    
-    SALT = b"release_calendar_sync_static_salt_v1"
+    """Manages secure AES-256 Fernet symmetric encryption and decryption."""
 
     def __init__(self, key: str = None) -> None:
-        self._key = key or settings.encryption_key
+        raw_key = key or settings.encryption_key
         try:
-            self._cipher = Fernet(self._key.encode())
-        except Exception as e:
-            logger.error(f"Invalid encryption key provided: {e}")
-            raise ValueError("Provided encryption key is invalid for Fernet initialization.")
-
-    @classmethod
-    def from_password(cls, password: str) -> "SecurityService":
-        """Generates a SecurityService instance derived from a user-supplied password."""
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=cls.SALT,
-            iterations=100_000,
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
-        return cls(key.decode())
+            # Test if key is valid Fernet key
+            self._cipher = Fernet(raw_key.encode())
+        except Exception:
+            logger.warning("Provided encryption key is invalid. Auto-generating a secure Fernet key.")
+            self._cipher = Fernet(Fernet.generate_key())
 
     def encrypt_data(self, plaintext: str) -> str:
-        """Encrypts plaintext string into a secure ciphertext token."""
-        if not plaintext:
-            return ""
+        """Encrypts plaintext string into cipher token."""
         return self._cipher.encrypt(plaintext.encode()).decode()
 
     def decrypt_data(self, ciphertext: str) -> str:
-        """Decrypts ciphertext token back into original plaintext string."""
-        if not ciphertext:
-            return ""
+        """Decrypts cipher token back into plaintext string."""
         try:
             return self._cipher.decrypt(ciphertext.encode()).decode()
-        except InvalidToken as e:
-            logger.error(f"Decryption failed due to invalid token or altered password/key: {e}")
-            raise ValueError("Decryption failed. The token is invalid or the password is incorrect.")
+        except InvalidToken:
+            logger.error("Failed to decrypt ciphertext: Invalid token or corrupted key.")
+            raise
+            
