@@ -14,7 +14,6 @@ class SetupAssistant:
         print("\n=== Release Calendar Sync: Interactive Setup Assistant ===")
         print("This wizard will help you set up your environment, virtual environment, and credentials.\n")
 
-        # 1. Virtual Environment & Dependencies
         print("[1/3] Setting up Python virtual environment and installing dependencies...")
         if not os.path.exists(".venv"):
             subprocess.run([sys.executable, "-m", "venv", ".venv"], check=True)
@@ -27,13 +26,12 @@ class SetupAssistant:
         subprocess.run([pip_path, "install", "-r", "requirements.txt"], check=True)
         print(" -> Dependencies successfully installed.\n")
 
-        # 2. Configuration & Credentials
         print("[2/3] Configuring API Keys and Secrets...")
         existing_key = os.getenv("ENCRYPTION_KEY", "insecure-default-key-for-testing==")
         encryption_key = input(f"Enter Encryption Key [Default/Auto]: ").strip() or existing_key
         calendar_id = input(f"Enter Google Calendar ID [Default: primary]: ").strip() or "primary"
         timezone = input(f"Enter Timezone [Default: UTC]: ").strip() or "UTC"
-    
+        
         print("\nGoogle Service Account JSON Credentials:")
         google_creds = input("Google Credentials JSON (single-line or press Enter to skip): ").strip() or "{}"
 
@@ -50,7 +48,6 @@ ENABLE_API_FETCH=true
             f.write(env_content)
         print(" -> Configuration saved to .env successfully.\n")
 
-        # 3. Directory Structure
         print("[3/3] Initializing local storage directories...")
         storage = ReleaseStorage()
         storage.save_state({"releases": {}})
@@ -58,4 +55,4 @@ ENABLE_API_FETCH=true
         storage.log_event("Setup assistant initialized storage successfully.")
         print(" -> Storage and logs initialized.\n")
         print("Setup complete! You can now run tests with: make test")
-      
+        
