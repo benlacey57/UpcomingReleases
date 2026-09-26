@@ -3,9 +3,10 @@ import sys
 import json
 import logging
 import importlib.metadata
-from datetime import datetime, timezone
-from cryptography.fernet import Fernet
+from datetime import datetime, timezone, date
 import zoneinfo
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from src.config import settings
 from src.storage import ReleaseStorage
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger(__name__)
 
 class SystemDiagnostics:
-    """Performs end-to-end system health checks and generates a detailed audit report."""
+    """Performs rigorous end-to-end system health checks, storage verification, and live calendar permission tests."""
 
     def __init__(self, report_path: str = "logs/debug_report.txt") -> None:
         self.report_path = report_path
@@ -35,7 +36,7 @@ class SystemDiagnostics:
 
     def run_checks(self) -> bool:
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        self.report_lines.append(f"Release Calendar Sync - System Diagnostic Report\nGenerated at: {timestamp}\n")
+        self.report_lines.append(f"Release Calendar Sync - Advanced System Diagnostic Report\nGenerated at: {timestamp}\n")
         
         all_passed = True
 
@@ -49,7 +50,6 @@ class SystemDiagnostics:
             self._log_line(f"Timezone: {settings.timezone} (Valid)", "PASS")
             
             self._log_line(f"Dry Run Mode: {settings.dry_run}", "INFO")
-            self._log_line(f"Calendar Sync Enabled: {settings.enable_calendar_sync}", "INFO")
         except Exception as e:
             self._log_line(f"Configuration validation failed: {e}", "FAIL")
             all_passed = False
@@ -66,24 +66,38 @@ class SystemDiagnostics:
             self._log_line(f"Security validation failed: {e}", "FAIL")
             all_passed = False
 
-        # 3. Filesystem & Storage Check
-        self._log_section("3. Filesystem & Storage Check")
+        # 3. Filesystem & Rigorous Storage Check
+        self._log_section("3. Filesystem & Storage Integrity Check")
         try:
             storage = ReleaseStorage()
-            state = storage.load_state()
-            cache = storage.load_cache()
-            tracked = storage.load_tracked_media()
-            storage.log_event("DIAGNOSTIC: System debug check executed.")
             
-            self._log_line(f"State file accessible ({len(state.get('releases', {}))} entries).", "PASS")
-            self._log_line(f"Cache file accessible ({len(cache.get('cached_releases', {}))} entries).", "PASS")
-            self._log_line(f"Tracked media file accessible ({len(tracked)} items).", "PASS")
-            self._log_line("Log writing and directory permissions verified.", "PASS")
+            # Test State CRUD Roundtrip
+            test_state = {"releases": {"test:diagnostic-item": {"title": "Diagnostic Test", "synced": True}}}
+            storage.save_state(test_state)
+            loaded_state = storage.load_state()
+            assert loaded_state["releases"]["test:diagnostic-item"]["title"] == "Diagnostic Test"
+            self._log_line("State storage read/write roundtrip verified.", "PASS")
+
+            # Test Cache CRUD Roundtrip
+            test_cache = {"last_updated": timestamp, "cached_releases": {}}
+            storage.save_cache(test_cache)
+            loaded_cache = storage.load_cache()
+            assert loaded_cache["last_updated"] == timestamp
+            self._log_line("Cache storage read/write roundtrip verified.", "PASS")
+
+            # Test Tracked Media CRUD
+            storage.save_tracked_media([{"type": "movie", "title": "Diagnostic Movie", "release_date": "2027-01-01"}])
+            tracked = storage.load_tracked_media()
+            assert len(tracked) == 1
+            storage.remove_tracked_item("Diagnostic Movie", "movie")
+            self._log_line("Tracked media CRUD operations verified.", "PASS")
+
+            storage.log_event("DIAGNOSTIC: Full storage integrity check passed.")
         except Exception as e:
-            self._log_line(f"Storage validation failed: {e}", "FAIL")
+            self._log_line(f"Storage integrity check failed: {e}", "FAIL")
             all_passed = False
 
-        # 4. Dependency Versions Check
+        # 4. Python Dependencies Check
         self._log_section("4. Python Dependencies Check")
         required_packages = ["google-api-python-client", "google-auth", "cryptography", "pydantic", "pytest", "requests"]
         for pkg in required_packages:
@@ -94,20 +108,47 @@ class SystemDiagnostics:
                 self._log_line(f"Package '{pkg}' is NOT installed.", "FAIL")
                 all_passed = False
 
-        # 5. Google Calendar API Authentication Check
-        self._log_section("5. Google Calendar API Connectivity Check")
-        try:
-            calendar_service = CalendarService()
-            if settings.google_credentials_json in ("{}", "", None):
-                self._log_line("Google credentials JSON is empty or unconfigured. Skipping live API call (Dry-Run active).", "WARN")
-            else:
+        # 5. Live Google Calendar Permissions Test (Read, Write, Delete)
+        self._log_section("5. Google Calendar Permissions & Live API Test")
+        calendar_service = CalendarService()
+        if settings.google_credentials_json in ("{}", "", None):
+            self._log_line("Google credentials JSON is unconfigured. Skipping live API permission test (Dry-Run active).", "WARN")
+        else:
+            try:
+                # Test Read Access (List Calendars & Events)
                 calendars = calendar_service.fetch_user_calendars()
-                self._log_line(f"Successfully authenticated and retrieved {len(calendars)} calendar(s).", "PASS")
-                for cal in calendars:
-                    self._log_line(f"  └─ Calendar: {cal.get('summary')} (ID: {cal.get('id')})", "INFO")
-        except Exception as e:
-            self._log_line(f"Google Calendar authentication or API check failed: {e}", "FAIL")
-            all_passed = False
+                self._log_line(f"Calendar READ Access: SUCCESS ({len(calendars)} calendars accessible).", "PASS")
+
+                service = build("calendar", "v3", credentials=calendar_service._credentials)
+                
+                # Test Read Events on target calendar
+                service.events().list(calendarId=calendar_service.calendar_id, maxResults=1).execute()
+                self._log_line(f"Calendar ID '{calendar_service.calendar_id}' read check: SUCCESS.", "PASS")
+
+                # Test Write Access (Insert temporary test event)
+                today_str = date.today().isoformat()
+                test_event_body = {
+                    "summary": "[DIAGNOSTIC TEST] Temporary Permission Check",
+                    "start": {"date": today_str},
+                    "end": {"date": today_str},
+                    "description": "Automated diagnostic permissions check. Will be deleted instantly."
+                }
+                
+                created_event = service.events().insert(calendarId=calendar_service.calendar_id, body=test_event_body).execute()
+                event_id = created_event.get("id")
+                self._log_line(f"Calendar WRITE Access: SUCCESS (Inserted test event ID: {event_id})", "PASS")
+
+                # Test Delete Access (Clean up test event immediately)
+                service.events().delete(calendarId=calendar_service.calendar_id, eventId=event_id).execute()
+                self._log_line("Calendar DELETE / Cleanup Access: SUCCESS (Test event successfully removed)", "PASS")
+
+            except HttpError as error:
+                self._log_line(f"Google Calendar API permission test FAILED: {error}", "FAIL")
+                self._log_line("Ensure your Service Account email has been shared with 'Make changes to events' permissions on this calendar.", "WARN")
+                all_passed = False
+            except Exception as e:
+                self._log_line(f"Unexpected error during calendar permission check: {e}", "FAIL")
+                all_passed = False
 
         # Write Report
         with open(self.report_path, "w", encoding="utf-8") as f:
@@ -115,7 +156,7 @@ class SystemDiagnostics:
 
         self._log_section("Summary")
         if all_passed:
-            self._log_line(f"All diagnostic checks passed successfully! Report saved to {self.report_path}", "PASS")
+            self._log_line(f"All diagnostic and calendar permission checks passed successfully! Report saved to {self.report_path}", "PASS")
         else:
             self._log_line(f"Some checks failed. Review details in {self.report_path}", "FAIL")
             sys.exit(1)
@@ -125,4 +166,4 @@ class SystemDiagnostics:
 if __name__ == "__main__":
     diagnostic = SystemDiagnostics()
     diagnostic.run_checks()
-      
+    
